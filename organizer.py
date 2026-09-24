@@ -1,13 +1,28 @@
 from pathlib import Path
 import shutil
+import json
 
-moves=[ ]
+
+moves_file = Path("moves.json")
+
+def load_moves():
+    pass
+def save_moves(destination, source):
+    moves = []
+    if moves_file.exists():
+        with moves_file.open("r") as f:
+          moves = json.load(f)
+    moves.append({"destination": str(destination), "source": str(source)})
+    with moves_file.open("w") as f:
+        json.dump(moves, f, indent=4)
 
 def move_files(file, destination_dir):
     destination_dir.mkdir(exist_ok=True)
     destination = destination_dir / file.name
     shutil.move(file, destination)
-    moves.append((destination, file.parent))
+    save_moves(destination, file.parent)
+    print(f"Moved {file.name} to {destination}")
+    
 
 def organize_files(path):
     directory = Path(path).expanduser() # expands the user's home directory and converts the path to a Path object
@@ -75,4 +90,4 @@ def revert_moves(moves):
         shutil.move(moved_file, original_dir)
         print(f"Reverted {moved_file.name} to {original_dir}")
 
-revert_moves(moves)
+# revert_moves(moves)
