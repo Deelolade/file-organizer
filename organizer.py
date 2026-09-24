@@ -6,12 +6,20 @@ import json
 moves_file = Path("moves.json")
 
 def load_moves():
-    pass
+    if  not moves_file.exists():
+        return []
+    if moves_file.stat().st_size == 0:
+        return []
+    try:
+       with moves_file.open("r") as f:
+          return json.load(f) 
+    except json.JSONDecodeError:
+        print(f"Error decoding JSON from {moves_file}")
+        return []
+    
 def save_moves(destination, source):
-    moves = []
-    if moves_file.exists():
-        with moves_file.open("r") as f:
-          moves = json.load(f)
+    moves = load_moves()
+    
     moves.append({"destination": str(destination), "source": str(source)})
     with moves_file.open("w") as f:
         json.dump(moves, f, indent=4)

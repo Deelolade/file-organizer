@@ -2,5 +2,9 @@
     {
         "destination": "C:\\Users\\user\\Documents\\desktop-project\\python\\assets\\Audio\\piano.mp3",
         "source": "C:\\Users\\user\\Documents\\desktop-project\\python\\assets"
+    },
+    {
+        "destination": "C:\\Users\\user\\Documents\\desktop-project\\python\\assets\\Audio\\piano.mp3",
+        "source": "C:\\Users\\user\\Documents\\desktop-project\\python\\assets"
     }
 ]
