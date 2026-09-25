@@ -131,6 +131,6 @@ def clear_history():
         print("=== History cleared ===")
         
 # organize_files("~/Documents/desktop-project/python/assets")
-revert_moves(load_moves())
-# history(load_moves())
+# revert_moves(load_moves())
+history(load_moves())
 # clear_history()
