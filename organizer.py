@@ -90,7 +90,6 @@ def organize_files(path):
             # else:
             #     print(f"{file.suffix} has not been acknowledged yet!!")
 
-organize_files("~/Documents/desktop-project/python/assets")
 
 
 def revert_moves(moves):
@@ -105,4 +104,17 @@ def revert_moves(moves):
         shutil.move(destination, source)
         print(f"Reverted {destination.name} to {source}")
 
+def history(moves):
+    if not moves:
+        print("No file moves recorded")
+        return  
+    print(f"\n === File Move History ===")
+    print(f"\n === You have {len(moves)} file moves recorded ===")
+    for i, move in enumerate(moves): 
+        print(f"\n{i+1}.")
+        print(f" \t From: {move['source']}")
+        print(f" \t To: {move['destination']}")
+
+# organize_files("~/Documents/desktop-project/python/assets")
 # revert_moves(load_moves())
+history(load_moves())

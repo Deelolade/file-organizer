@@ -10,7 +10,9 @@ To use the script, open the file and modify the target path at the very bottom t
 python organizer.py
 ```
 
-When executed, the script will iterate through the target directory, print out each file it finds, and show exactly which folder it is being moved to.
+When executed, the script will iterate through the target directory, print out each file it finds, and show exactly which folder it is being moved to. 
+
+It also automatically generates a `moves.json` file in the same directory to log the original and new locations of every moved file. If you ever need to undo the process, you can uncomment the `revert_moves(load_moves())` line at the bottom of the script and run it again to restore all files to their original locations.
 
 ## Features
 
@@ -19,6 +21,8 @@ When executed, the script will iterate through the target directory, print out e
 * Groups common files into Code, Images, Audio, Video, Archive, and Documents.
 * Catches unrecognized extensions and moves them safely to an isolated Unknown folder.
 * Safely skips directories to avoid breaking nested folder structures.
+* Tracks all file movements in a generated JSON log.
+* Includes a revert function to safely undo the organization process.
 
 ## Technologies Used
 
@@ -27,6 +31,7 @@ When executed, the script will iterate through the target directory, print out e
 | [Python](https://www.python.org/) | Core language environment |
 | [Pathlib](https://docs.python.org/3/library/pathlib.html) | Object-oriented filesystem path handling |
 | [Shutil](https://docs.python.org/3/library/shutil.html) | High-level file operations and moving |
+| [JSON](https://docs.python.org/3/library/json.html) | State tracking and move history logging |
 
 ## Author Info
 
