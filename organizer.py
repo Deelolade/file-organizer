@@ -94,8 +94,15 @@ organize_files("~/Documents/desktop-project/python/assets")
 
 
 def revert_moves(moves):
-    for moved_file, original_dir in reversed(moves):
-        shutil.move(moved_file, original_dir)
-        print(f"Reverted {moved_file.name} to {original_dir}")
+    for move in reversed(moves):
+        destination = Path(move["destination"])
+        source = Path(move["source"])
 
-# revert_moves(moves)
+        if not destination.exists():
+            print(f"Skipping {destination.name}: not found at {destination}")
+            continue
+        source.mkdir(parents=True, exist_ok=True)
+        shutil.move(destination, source)
+        print(f"Reverted {destination.name} to {source}")
+
+# revert_moves(load_moves())
