@@ -20,7 +20,12 @@ def load_moves():
 def save_moves(destination, source):
     moves = load_moves()
     
-    moves.append({"destination": str(destination), "source": str(source)})
+    moves.append({
+        "id": len(moves) + 1,
+        "destination": str(destination),
+        "source": str(source),
+        "reverted": False
+    })
     with moves_file.open("w") as f:
         json.dump(moves, f, indent=4)
 
@@ -90,9 +95,11 @@ def organize_files(path):
             # else:
             #     print(f"{file.suffix} has not been acknowledged yet!!")
 
-
-
 def revert_moves(moves):
+    if not moves:
+        print(
+            "No moves to revert")
+        return
     for move in reversed(moves):
         destination = Path(move["destination"])
         source = Path(move["source"])
@@ -102,7 +109,10 @@ def revert_moves(moves):
             continue
         source.mkdir(parents=True, exist_ok=True)
         shutil.move(destination, source)
+        move["reverted"] = True
         print(f"Reverted {destination.name} to {source}")
+    with moves_file.open("w") as f:
+        json.dump(moves, f, indent=4)
 
 def history(moves):
     if not moves:
@@ -115,6 +125,12 @@ def history(moves):
         print(f" \t From: {move['source']}")
         print(f" \t To: {move['destination']}")
 
+def clear_history():
+    with moves_file.open("w") as f:
+        json.dump([], f)
+        print("=== History cleared ===")
+        
 # organize_files("~/Documents/desktop-project/python/assets")
-# revert_moves(load_moves())
-history(load_moves())
+revert_moves(load_moves())
+# history(load_moves())
+# clear_history()
