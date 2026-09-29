@@ -1,8 +1,10 @@
 from pathlib import Path
 import shutil
 import json
+import os
 import re
 import sys
+import time
 
 from guessit import guessit
 
@@ -22,9 +24,36 @@ def load_moves():
 
 
 def save_moves(moves):
-    """Write the full move log back to disk."""
-    with moves_file.open("w", encoding="utf-8") as f:
-        json.dump(moves, f, indent=4)
+    """Write the move log atomically, retrying on transient file locks.
+
+    Windows can briefly hold a lock on moves.json (editor file watchers,
+    OneDrive sync, antivirus), which surfaces as OSError [Errno 22/13].
+    Writing to a temp file and replacing avoids partial writes and reduces
+    the window for those locks. Returns True on success.
+    """
+    tmp = moves_file.with_name(moves_file.name + ".tmp")
+    last_exc = None
+
+    for attempt in range(5):
+        try:
+            with tmp.open("w", encoding="utf-8") as f:
+                json.dump(moves, f, indent=4)
+            os.replace(tmp, moves_file)
+            return True
+        except OSError as exc:
+            last_exc = exc
+            time.sleep(0.2 * (attempt + 1))
+
+    # Fallback: some locks only block replace(), not an in-place rewrite.
+    try:
+        with moves_file.open("w", encoding="utf-8") as f:
+            json.dump(moves, f, indent=4)
+        return True
+    except OSError as exc:
+        last_exc = exc
+
+    print(f"Error: could not save moves.json: {last_exc}")
+    return False
 
 
 def move_files(file, destination_dir, moves):
@@ -142,16 +171,23 @@ def organize_files(path):
             pending += 1
             moved_count += 1
 
-            # Save after every 20 successful moves.
+            # Best-effort checkpoint every 20 moves (crash safety). The
+            # authoritative save happens once at the end, so a failed
+            # checkpoint is never fatal.
             if pending >= 20:
                 save_moves(moves)
                 pending = 0
 
-    # Save any remaining moves.
-    if pending:
-        save_moves(moves)
-
-    print(f"\nOrganization complete. {moved_count} files moved.")
+    # Final authoritative save; retries are handled inside save_moves.
+    if moved_count:
+        if save_moves(moves):
+            print(f"\nOrganization complete. {moved_count} files moved.")
+        else:
+            print(
+                f"\nOrganization complete. {moved_count} files moved, "
+                "but the move log could not be saved — re-run `revert` "
+                "after fixing file access to moves.json."
+            )
 
 def revert_moves(moves):
     if not moves:
@@ -205,6 +241,44 @@ def revert_moves(moves):
     if updated:
         save_moves(moves)
 
+def revert_file(file_id, moves):
+    # this will be the function to revert one file to it original source
+    for move in moves:
+       if move.get("id") == file_id
+            break
+    else : 
+        print(f"File with Id {file_id} does not exist.")
+        return
+    if move.get("reverted"):
+        print(f"File with id {file_id} has already been reverted.")
+        return
+    destination = Path(move["destination"])
+    source = Path(move["source"])
+        
+    if not destination.exists():
+        print(f"{destination.name} was not found at its destination.")
+        return
+    if source.is_dir():
+        target = source / destination.name
+    else:
+        target = source
+        
+        target.parent.mkdir(parents=True, exist_ok=True)
+        
+    if target.exists():
+        print(f"{target.name} already exists at {target}.")
+        return
+        
+    try:
+        shutil.move(str(destination), str(target))
+    except OSError as exc:
+        print(f"Failed to revert {destination.name}: {exc}")
+        return
+        
+    move["reverted"] = True
+    save_moves(moves)  
+    
+    print(f"Reverted #{file_id}: {destination.name} → {target}")
 
 def history(moves):
     if not moves:
@@ -220,8 +294,10 @@ def history(moves):
 
 
 def clear_history():
-    save_moves([])
-    print("=== History cleared ===")
+    if save_moves([]):
+        print("=== History cleared ===")
+    else:
+        print("=== Failed to clear history ===")
 
 
 if __name__ == "__main__":
@@ -236,6 +312,12 @@ if __name__ == "__main__":
         organize_files(path)
     elif command == "revert":
         revert_moves(load_moves())
+    elif command == "revert-file":
+        if len(args) < 2:
+            print("Usage: py organizer.py revert-file <id>")
+            sys.exit(1)
+        file_id = int(args[1])
+        revert_file(file_id,load_moves())
     elif command == "history":
         history(load_moves())
     elif command == "clear":
