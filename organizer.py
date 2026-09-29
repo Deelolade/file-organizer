@@ -242,43 +242,60 @@ def revert_moves(moves):
         save_moves(moves)
 
 def revert_file(file_id, moves):
-    # this will be the function to revert one file to it original source
-    for move in moves:
-       if move.get("id") == file_id
+    """Revert a single move (by its id) back to its original location."""
+    move = None
+    for entry in moves:
+        if entry.get("id") == file_id:
+            move = entry
             break
-    else : 
-        print(f"File with Id {file_id} does not exist.")
+
+    if move is None:
+        print(f"No move found with id {file_id}.")
         return
+
     if move.get("reverted"):
         print(f"File with id {file_id} has already been reverted.")
         return
+
     destination = Path(move["destination"])
     source = Path(move["source"])
-        
+
     if not destination.exists():
-        print(f"{destination.name} was not found at its destination.")
+        print(f"{destination.name} was not found at {destination}.")
         return
+
+    # Older logs store `source` as a directory; newer logs store the full
+    # original file path. Handle both.
     if source.is_dir():
         target = source / destination.name
     else:
         target = source
-        
-        target.parent.mkdir(parents=True, exist_ok=True)
-        
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+
     if target.exists():
         print(f"{target.name} already exists at {target}.")
         return
-        
+
     try:
         shutil.move(str(destination), str(target))
     except OSError as exc:
         print(f"Failed to revert {destination.name}: {exc}")
         return
-        
+
     move["reverted"] = True
-    save_moves(moves)  
-    
+    save_moves(moves)
+
     print(f"Reverted #{file_id}: {destination.name} → {target}")
+
+    # Clean up the category folder if it is now empty.
+    try:
+        dest_dir = destination.parent
+        if dest_dir.is_dir() and not any(dest_dir.iterdir()):
+            dest_dir.rmdir()
+            print(f"Removed empty directory: {dest_dir}")
+    except OSError:
+        pass
 
 def history(moves):
     if not moves:
@@ -303,7 +320,7 @@ def clear_history():
 if __name__ == "__main__":
     args = sys.argv[1:]
     if not args:
-        print("Usage: python organizer.py <organize|revert|history|clear> [path]")
+        print("Usage: python organizer.py <organize|revert|revert_file|history|clear> [path]")
         sys.exit(1)
 
     command = args[0].lower()
@@ -312,12 +329,18 @@ if __name__ == "__main__":
         organize_files(path)
     elif command == "revert":
         revert_moves(load_moves())
-    elif command == "revert-file":
+        
+    elif command in ("revert_file", "revert-file"):
         if len(args) < 2:
-            print("Usage: py organizer.py revert-file <id>")
+            print("Usage: py organizer.py revert_file <id>")
             sys.exit(1)
-        file_id = int(args[1])
-        revert_file(file_id,load_moves())
+        try:
+            file_id = int(args[1])
+        except ValueError:
+            print(f"Invalid id: {args[1]}")
+            sys.exit(1)
+        revert_file(file_id, load_moves())
+        
     elif command == "history":
         history(load_moves())
     elif command == "clear":
