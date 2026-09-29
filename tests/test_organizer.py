@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 
 import pytest
@@ -327,3 +328,18 @@ def test_revert_files_ignores_unknown_ids(isolated):
 
     assert (isolated / "a.py").exists()
     assert any("No move found with id 999" in m for m in messages)
+
+
+# ---------------------------------------------------------------------------
+# frozen (PyInstaller) log location
+# ---------------------------------------------------------------------------
+
+def test_app_dir_uses_script_folder_when_not_frozen(monkeypatch):
+    monkeypatch.delattr(sys, "frozen", raising=False)
+    assert organizer._app_dir() == Path(organizer.__file__).resolve().parent
+
+
+def test_app_dir_uses_executable_folder_when_frozen(monkeypatch, tmp_path):
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "executable", str(tmp_path / "FileOrganizer.exe"))
+    assert organizer._app_dir() == tmp_path

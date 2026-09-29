@@ -1,12 +1,21 @@
 # -*- mode: python ; coding: utf-8 -*-
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
+
+# guessit and babelfish have no PyInstaller hooks, yet they read data files and
+# import converter modules dynamically at runtime. Without these the frozen app
+# crashes on `from guessit import guessit`.
+datas = collect_data_files("guessit", excludes=["**/test/**"])
+datas += collect_data_files("babelfish")
+
+hiddenimports = collect_submodules("babelfish.converters")
 
 
 a = Analysis(
     ['gui.py'],
     pathex=[],
     binaries=[],
-    datas=[],
-    hiddenimports=[],
+    datas=datas,
+    hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

@@ -1,0 +1,2 @@
+guessit>=3.8
+ttkbootstrap>=1.10

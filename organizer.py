@@ -8,7 +8,20 @@ import time
 
 from guessit import guessit
 
-moves_file = Path(__file__).resolve().parent / "moves.json"
+def _app_dir():
+    """Where the move log lives: next to the .exe when frozen by PyInstaller,
+    otherwise next to this script.
+
+    When frozen, `__file__` points inside PyInstaller's temporary extraction
+    folder, which is wiped on exit — writing the log there would lose it every
+    run. `sys.executable` is the path of the running .exe.
+    """
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent
+
+
+moves_file = _app_dir() / "moves.json"
 
 
 def load_moves():
@@ -19,7 +32,7 @@ def load_moves():
         with moves_file.open("r", encoding="utf-8") as f:
             return json.load(f)
     except (json.JSONDecodeError, OSError):
-        print(f"Error decoding JSON from {moves_file}")
+        _log(f"Error decoding JSON from {moves_file}")
         return []
 
 
@@ -52,15 +65,19 @@ def save_moves(moves):
     except OSError as exc:
         last_exc = exc
 
-    print(f"Error: could not save moves.json: {last_exc}")
+    _log(f"Error: could not save moves.json: {last_exc}")
     return False
 
 
 def _log(message, on_log=None):
-    """Send a message to a callback when provided, otherwise print it."""
+    """Send a message to a callback when provided, otherwise print it.
+
+    `sys.stdout` is None in a windowed (console=False) frozen app, so guard
+    against that to avoid a crash on a stray message.
+    """
     if on_log is not None:
         on_log(message)
-    else:
+    elif sys.stdout is not None:
         print(message, flush=True)
 
 
@@ -379,24 +396,24 @@ def revert_files(ids, moves, on_log=None, should_stop=None):
 
     _log(f"Done. Reverted {reverted} of {len(ids)} requested id(s).", on_log)
 
-def history(moves):
+def history(moves, on_log=None):
     if not moves:
-        print("No file moves recorded")
+        _log("No file moves recorded", on_log)
         return
-    print("\n === File Move History ===")
+    _log("\n === File Move History ===", on_log)
     for i, move in enumerate(moves):
         status = " (Reverted)" if move.get("reverted") else ""
-        print(f"\n{i+1}.{status}")
-        print(f" \t From: {move['source']}")
-        print(f" \t To: {move['destination']}")
-    print(f"\n === You have {len(moves)} file moves recorded ===")
+        _log(f"\n{i+1}.{status}", on_log)
+        _log(f" \t From: {move['source']}", on_log)
+        _log(f" \t To: {move['destination']}", on_log)
+    _log(f"\n === You have {len(moves)} file moves recorded ===", on_log)
 
 
 def clear_history():
     if save_moves([]):
-        print("=== History cleared ===")
+        _log("=== History cleared ===")
     else:
-        print("=== Failed to clear history ===")
+        _log("=== Failed to clear history ===")
 
 
 if __name__ == "__main__":
