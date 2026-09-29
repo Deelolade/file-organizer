@@ -4,15 +4,18 @@ File Organizer helps users automatically sort cluttered directories into categor
 
 ## Usage
 
-To use the script, open the file and modify the target path at the very bottom to point to the directory you want to organize. Be sure to provide the absolute path or a valid home-relative path. Once the target path is set, run the script from your terminal like this:
+Run the script with a command and, for `organize`, an optional target path:
 
 ```bash
-python organizer.py
+py organizer.py organize [path]   # sort a directory into category folders
+py organizer.py revert             # undo the last organize run
+py organizer.py history            # print the move log
+py organizer.py clear              # wipe the move log
 ```
 
-When executed, the script will iterate through the target directory, print out each file it finds, and show exactly which folder it is being moved to. 
+`organize` defaults to `~/Downloads/telegram_desktop` when no path is given, so you can pass an absolute path or a valid home-relative path to target any directory.
 
-It also automatically generates a `moves.json` file in the same directory to log the original and new locations of every moved file. If you ever need to undo the process, you can uncomment the `revert_moves(load_moves())` line at the bottom of the script and run it again to restore all files to their original locations.
+When organizing, the script iterates through the target directory, prints each file it finds, and shows exactly which folder it is being moved to. It generates a `moves.json` file in the same directory as the script to log the original and new locations of every moved file, so `revert` can restore all files to their original locations.
 
 ## Features
 
