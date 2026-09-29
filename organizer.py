@@ -27,33 +27,35 @@ def save_moves(moves):
         json.dump(moves, f, indent=4)
 
 
-def move_files(file, destination_dir):
-    """Move a single file into destination_dir and record the move."""
-    destination_dir.mkdir(parents=True, exist_ok=True)
+def move_files(file, destination_dir, moves):
+    if not file.is_file():
+        print(f"Skipping {file.name}: source no longer exists")
+        return False
+
     destination = destination_dir / file.name
 
-    if destination.exists():
-        print(f"Skipping {file.name}: already exists at {destination}")
-        return
-
     try:
+        destination_dir.mkdir(parents=True, exist_ok=True)
+
+        if destination.exists():
+            print(f"Skipping {file.name}: already exists")
+            return False
+
         shutil.move(str(file), str(destination))
+
     except OSError as exc:
         print(f"Failed to move {file.name}: {exc}")
-        return
+        return False
 
-    moves = load_moves()
-    moves.append(
-        {
-            "id": len(moves) + 1,
-            "destination": str(destination),
-            "source": str(file),
-            "reverted": False,
-        }
-    )
-    save_moves(moves)
-    print(f"Moved {file.name} to {destination}")
+    moves.append({
+        "id": len(moves) + 1,
+        "source": str(file),
+        "destination": str(destination),
+        "reverted": False,
+    })
 
+    print(f"Moved {file.name} to {destination}", flush=True)
+    return True
 
 def extract_title(file_name):
     # Try guessit first to extract series title
