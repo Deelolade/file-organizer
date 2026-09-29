@@ -2,30 +2,81 @@
 
 File Organizer helps users automatically sort cluttered directories into categorized folders based on file types. It takes a messy target folder, groups files into specific categories like images or code, and moves them into clean subdirectories. This provides a straightforward way to keep file systems tidy without complex configurations.
 
+## System Architecture
+
+```mermaid
+flowchart LR
+  CLI["Command Line Interface"]
+  Script["Organizer Core"]
+  FS["File System"]
+  Log[("moves.json Log")]
+
+  CLI --> Script
+  Script --> FS
+  Script --> Log
+
+  style CLI fill:#1e1b4b,stroke:#6366f1,stroke-width:2px,color:#fff
+  style Script fill:#2e1065,stroke:#8b5cf6,stroke-width:2px,color:#fff
+  style FS fill:#0f172a,stroke:#3b82f6,stroke-width:2px,color:#fff
+  style Log fill:#4c0519,stroke:#ef4444,stroke-width:2px,color:#fff
+```
+
 ## Usage
 
 Run the script with a command and, for `organize`, an optional target path:
 
 ```bash
-py organizer.py organize [path]   # sort a directory into category folders
-py organizer.py revert             # undo the last organize run
-py organizer.py history            # print the move log
+py organizer.py organize [path]    # sort a directory into category folders
+py organizer.py revert             # undo all file moves from the last organize run
+py organizer.py revert_file <id>   # undo a specific file move using its history ID
+py organizer.py history            # print the move log with IDs
 py organizer.py clear              # wipe the move log
 ```
 
 `organize` defaults to `~/Downloads/telegram_desktop` when no path is given, so you can pass an absolute path or a valid home-relative path to target any directory.
 
-When organizing, the script iterates through the target directory, prints each file it finds, and shows exactly which folder it is being moved to. It generates a `moves.json` file in the same directory as the script to log the original and new locations of every moved file, so `revert` can restore all files to their original locations.
+When organizing, the script iterates through the target directory, prints each file it finds, and shows exactly which folder it is being moved to. It generates an atomic `moves.json` file in the same directory as the script to log the original and new locations of every moved file, assigning each an ID so `revert` or `revert_file` can restore files to their original locations.
 
 ## Features
 
 * Automatically sorts files by their extensions.
 * Creates destination folders automatically if they do not exist.
 * Groups common files into Code, Images, Audio, Video, Archive, and Documents.
+* Intelligently parses video filenames using Guessit to group TV shows and movies into specific dedicated folders.
+
+```mermaid
+sequenceDiagram
+  actor User
+  participant Script
+  participant FS as "File System"
+  participant Log as "moves.json"
+
+  User->>Script: Run organize command
+  Script->>FS: Scan target directory
+  FS->>Script: Return file list
+  Script->>Script: Extract media titles and determine target folders
+  Script->>FS: Move files to categorized destinations
+  Script->>Log: Save move history atomically
+```
+
 * Catches unrecognized extensions and moves them safely to an isolated Unknown folder.
 * Safely skips directories to avoid breaking nested folder structures.
-* Tracks all file movements in a generated JSON log.
-* Includes a revert function to safely undo the organization process.
+* Tracks all file movements with unique IDs in an atomic, crash-proof JSON log that automatically retries if files are locked.
+* Includes both global and single-file revert functions to safely undo the organization process.
+
+```mermaid
+sequenceDiagram
+  actor User
+  participant Script
+  participant Log as "moves.json"
+  participant FS as "File System"
+
+  User->>Script: Run revert_file <id>
+  Script->>Log: Read move history
+  Log->>Script: Return move records
+  Script->>FS: Move specific file back to original source path
+  Script->>Log: Mark history entry as reverted
+```
 
 ## Technologies Used
 
@@ -35,6 +86,7 @@ When organizing, the script iterates through the target directory, prints each f
 | [Pathlib](https://docs.python.org/3/library/pathlib.html) | Object-oriented filesystem path handling |
 | [Shutil](https://docs.python.org/3/library/shutil.html) | High-level file operations and moving |
 | [JSON](https://docs.python.org/3/library/json.html) | State tracking and move history logging |
+| [Guessit](https://guessit.readthedocs.io/en/latest/) | Extracts clean media titles from video file names |
 
 ## Author Info
 
