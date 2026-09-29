@@ -76,12 +76,23 @@ def move_files(file, destination_dir, moves):
         print(f"Failed to move {file.name}: {exc}")
         return False
 
-    moves.append({
-        "id": len(moves) + 1,
-        "source": str(file),
-        "destination": str(destination),
-        "reverted": False,
-    })
+    source = str(file)
+    dest = str(destination)
+
+    # Reuse an existing entry for this file (same source → destination) and
+    # reset it to not-reverted, so a previously-reverted file can be organized
+    # and reverted again instead of piling up duplicate log entries.
+    for existing in moves:
+        if existing.get("source") == source and existing.get("destination") == dest:
+            existing["reverted"] = False
+            break
+    else:
+        moves.append({
+            "id": max((m.get("id", 0) for m in moves), default=0) + 1,
+            "source": source,
+            "destination": dest,
+            "reverted": False,
+        })
 
     print(f"Moved {file.name} to {destination}", flush=True)
     return True
