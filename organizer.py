@@ -56,7 +56,7 @@ def move_files(file, destination_dir, moves):
 
     print(f"Moved {file.name} to {destination}", flush=True)
     return True
-
+    
 def extract_title(file_name):
     # Try guessit first to extract series title
     try:
@@ -82,6 +82,7 @@ def extract_title(file_name):
 
 def organize_files(path):
     directory = Path(path).expanduser()
+
     if not directory.is_dir():
         print(f"{path} is not a directory")
         return
@@ -92,40 +93,65 @@ def organize_files(path):
     audio_extensions = {".mp3", ".wav"}
     video_extensions = {".mp4", ".mov", ".mkv", ".avi", ".webm"}
     archive_extensions = {".zip", ".tar", ".gz"}
+    program_extensions = {".exe", ".msi"}
 
-    for file in directory.iterdir():
+    moves = load_moves()
+    pending = 0
+    moved_count = 0
+
+    # Take a snapshot of the files before moving anything.
+    for file in list(directory.iterdir()):
         if not file.is_file():
             continue
+
         if file.resolve() == moves_file.resolve():
             continue
 
-        if file.suffix in code_extensions:
-            print(f"{file.name} → Code")
-            move_files(file, directory / "Code")
-        elif file.suffix in image_extensions:
-            print(f"{file.name} → Image")
-            move_files(file, directory / "Images")
-        elif file.suffix in audio_extensions:
-            print(f"{file.name} → Audio")
-            move_files(file, directory / "Audio")
-        elif file.suffix in video_extensions:
-            title = extract_title(file.name)
-            if title and title.lower() != file.stem.lower():
-                print(f"{file.name} → Series Title: {title}")
-                move_files(file, directory / title)
-            else:
-                print(f"{file.name} → Video")
-                move_files(file, directory / "Video")
-        elif file.suffix in archive_extensions:
-            print(f"{file.name} → Archive")
-            move_files(file, directory / "Archive")
-        elif file.suffix in doc_extensions:
-            print(f"{file.name} → Document")
-            move_files(file, directory / "Documents")
-        else:
-            print(f"{file.suffix} -> Unknown")
-            move_files(file, directory / "Unknown")
+        extension = file.suffix.lower()
 
+        if extension in code_extensions:
+            destination = directory / "Code"
+        elif extension in image_extensions:
+            destination = directory / "Images"
+        elif extension in audio_extensions:
+            destination = directory / "Audio"
+        elif extension in program_extensions:
+            destination = directory / "Programs"
+        elif extension in video_extensions:
+            title = extract_title(file.name)
+
+            if title and title.lower() != file.stem.lower():
+                # Remove characters that are invalid in Windows folder names.
+                title = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "", title)
+                title = title.strip(" .")
+
+            if title:
+                destination = directory / title
+            else:
+                destination = directory / "Video"
+        elif extension in archive_extensions:
+            destination = directory / "Archive"
+        elif extension in doc_extensions:
+            destination = directory / "Documents"
+        else:
+            destination = directory / "Unknown"
+
+        print(f"{file.name} → {destination.name}", flush=True)
+
+        if move_files(file, destination, moves):
+            pending += 1
+            moved_count += 1
+
+            # Save after every 20 successful moves.
+            if pending >= 20:
+                save_moves(moves)
+                pending = 0
+
+    # Save any remaining moves.
+    if pending:
+        save_moves(moves)
+
+    print(f"\nOrganization complete. {moved_count} files moved.")
 
 def revert_moves(moves):
     if not moves:
