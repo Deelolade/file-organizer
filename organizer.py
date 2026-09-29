@@ -276,8 +276,35 @@ def revert_moves(moves, on_log=None, should_stop=None):
     if updated:
         save_moves(moves)
 
+def parse_ids(text):
+    """Parse an id spec like '1, 3, 7-9' into a de-duplicated list of ints."""
+    ids = []
+    for part in re.split(r"[,\s]+", text.strip()):
+        if not part:
+            continue
+        if "-" in part:
+            lo, hi = part.split("-", 1)
+            start, end = int(lo), int(hi)
+            if end < start:
+                start, end = end, start
+            ids.extend(range(start, end + 1))
+        else:
+            ids.append(int(part))
+
+    seen = set()
+    unique = []
+    for i in ids:
+        if i not in seen:
+            seen.add(i)
+            unique.append(i)
+    return unique
+
+
 def revert_file(file_id, moves, on_log=None):
-    """Revert a single move (by its id) back to its original location."""
+    """Revert a single move (by its id) back to its original location.
+
+    Returns True if the file was moved back, False otherwise.
+    """
     move = None
     for entry in moves:
         if entry.get("id") == file_id:
@@ -286,18 +313,18 @@ def revert_file(file_id, moves, on_log=None):
 
     if move is None:
         _log(f"No move found with id {file_id}.", on_log)
-        return
+        return False
 
     if move.get("reverted"):
         _log(f"File with id {file_id} has already been reverted.", on_log)
-        return
+        return False
 
     destination = Path(move["destination"])
     source = Path(move["source"])
 
     if not destination.exists():
         _log(f"{destination.name} was not found at {destination}.", on_log)
-        return
+        return False
 
     # Older logs store `source` as a directory; newer logs store the full
     # original file path. Handle both.
@@ -310,13 +337,13 @@ def revert_file(file_id, moves, on_log=None):
 
     if target.exists():
         _log(f"{target.name} already exists at {target}.", on_log)
-        return
+        return False
 
     try:
         shutil.move(str(destination), str(target))
     except OSError as exc:
         _log(f"Failed to revert {destination.name}: {exc}", on_log)
-        return
+        return False
 
     move["reverted"] = True
     save_moves(moves)
@@ -331,6 +358,26 @@ def revert_file(file_id, moves, on_log=None):
             _log(f"Removed empty directory: {dest_dir}", on_log)
     except OSError:
         pass
+
+    return True
+
+
+def revert_files(ids, moves, on_log=None, should_stop=None):
+    """Revert a specific set of move ids (not the whole log)."""
+    ids = list(ids)
+    if not ids:
+        _log("No ids given.", on_log)
+        return
+
+    reverted = 0
+    for file_id in ids:
+        if should_stop is not None and should_stop():
+            _log("Cancelled.", on_log)
+            break
+        if revert_file(file_id, moves, on_log):
+            reverted += 1
+
+    _log(f"Done. Reverted {reverted} of {len(ids)} requested id(s).", on_log)
 
 def history(moves):
     if not moves:
@@ -367,14 +414,14 @@ if __name__ == "__main__":
         
     elif command in ("revert_file", "revert-file"):
         if len(args) < 2:
-            print("Usage: py organizer.py revert_file <id>")
+            print("Usage: py organizer.py revert_file <id> [id ...]   e.g. 1,3,7-9")
             sys.exit(1)
         try:
-            file_id = int(args[1])
+            ids = parse_ids(" ".join(args[1:]))
         except ValueError:
-            print(f"Invalid id: {args[1]}")
+            print(f"Invalid id list: {' '.join(args[1:])}")
             sys.exit(1)
-        revert_file(file_id, load_moves())
+        revert_files(ids, load_moves())
         
     elif command == "history":
         history(load_moves())

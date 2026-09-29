@@ -13,8 +13,8 @@ import organizer
 # ---------------------------------------------------------------------------
 root = ttk.Window(themename="darkly")
 root.title("File Organizer")
-root.geometry("780x660")
-root.minsize(620, 540)
+root.geometry("800x760")
+root.minsize(640, 620)
 
 # The worker thread only pushes messages here; the main thread drains it, so
 # widgets are never touched off the main thread.
@@ -33,6 +33,13 @@ def log_write(message):
     log.configure(state="disabled")
 
 
+def log_block(text):
+    log.configure(state="normal")
+    log.insert("end", text)
+    log.see("end")
+    log.configure(state="disabled")
+
+
 def log_clear():
     log.configure(state="normal")
     log.delete("1.0", "end")
@@ -45,9 +52,8 @@ def set_status(message):
 
 def set_running(is_running):
     btn_state = "disabled" if is_running else "normal"
-    organize_btn.configure(state=btn_state)
-    revert_btn.configure(state=btn_state)
-    browse_btn.configure(state=btn_state)
+    for btn in (organize_btn, revert_btn, browse_btn, revert_ids_btn, history_btn):
+        btn.configure(state=btn_state)
     cancel_btn.configure(state="normal" if is_running else "disabled")
     if is_running:
         progress.start(12)
@@ -64,15 +70,48 @@ def browse_folder():
         set_status("Folder selected. Ready to organize.")
 
 
+def show_history():
+    """Print a compact, one-line-per-move history into the activity log."""
+    if worker is not None and worker.is_alive():
+        return
+
+    moves = organizer.load_moves()
+    if not moves:
+        log_block("No file moves recorded.\n")
+        return
+
+    lines = []
+    for m in moves:
+        flag = " [reverted]" if m.get("reverted") else ""
+        lines.append(f"#{m['id']}{flag}  {m['source']}  ->  {m['destination']}")
+    lines.append(f"--- {len(moves)} move(s) recorded ---\n")
+
+    log_clear()
+    log_block("\n".join(lines))
+    set_status(f"Showing {len(moves)} move(s).")
+
+
 def start_job(kind):
     global worker
     if worker is not None and worker.is_alive():
         return  # a job is already running
 
     path = folder_path.get()
-    if kind == "organize" and not path:
-        set_status("Please select a folder first.")
-        return
+    ids = None
+
+    if kind == "organize":
+        if not path:
+            set_status("Please select a folder first.")
+            return
+    elif kind == "revert_ids":
+        try:
+            ids = organizer.parse_ids(id_input.get())
+        except ValueError:
+            set_status("Invalid ID list. Use e.g. 1, 3, 7-9")
+            return
+        if not ids:
+            set_status("Enter one or more IDs first (e.g. 1, 3, 7-9).")
+            return
 
     cancel_event.clear()
     log_clear()
@@ -88,8 +127,15 @@ def start_job(kind):
                 organizer.organize_files(
                     path, on_log=push, should_stop=cancel_event.is_set
                 )
-            else:
+            elif kind == "revert":
                 organizer.revert_moves(
+                    organizer.load_moves(),
+                    on_log=push,
+                    should_stop=cancel_event.is_set,
+                )
+            else:  # revert_ids
+                organizer.revert_files(
+                    ids,
                     organizer.load_moves(),
                     on_log=push,
                     should_stop=cancel_event.is_set,
@@ -177,7 +223,7 @@ organize_btn.pack(side="left", expand=True, fill="x", padx=(0, 8))
 
 revert_btn = ttk.Button(
     action_row,
-    text="Revert",
+    text="Revert All",
     bootstyle="warning",
     command=lambda: start_job("revert"),
     padding=(15, 10),
@@ -196,6 +242,46 @@ cancel_btn.pack(side="left", expand=True, fill="x")
 
 progress = ttk.Progressbar(main, mode="indeterminate", bootstyle="info-striped")
 progress.pack(fill="x", pady=(0, 20))
+
+# Revert specific files by ID
+id_card = ttk.Labelframe(
+    main, text="  Revert specific files by ID  ", padding=15, bootstyle="warning"
+)
+id_card.pack(fill="x", pady=(0, 20))
+
+id_row = ttk.Frame(id_card)
+id_row.pack(fill="x")
+
+ttk.Label(id_row, text="IDs", font=("Segoe UI", 10)).pack(side="left", padx=(0, 8))
+
+id_input = tk.StringVar()
+id_entry = ttk.Entry(id_row, textvariable=id_input)
+id_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
+
+history_btn = ttk.Button(
+    id_row,
+    text="History",
+    bootstyle="secondary-outline",
+    command=show_history,
+    padding=(12, 6),
+)
+history_btn.pack(side="left", padx=(0, 8))
+
+revert_ids_btn = ttk.Button(
+    id_row,
+    text="Revert IDs",
+    bootstyle="warning-outline",
+    command=lambda: start_job("revert_ids"),
+    padding=(12, 6),
+)
+revert_ids_btn.pack(side="left")
+
+ttk.Label(
+    id_card,
+    text="Enter one id or many, e.g. 4  or  1, 3, 7-9.  Use History to find ids.",
+    font=("Segoe UI", 9),
+    bootstyle="secondary",
+).pack(anchor="w", pady=(8, 0))
 
 # Status
 status_card = ttk.Labelframe(

@@ -393,7 +393,7 @@
         "id": 66,
         "destination": "C:\\Users\\user\\Downloads\\telegram_desktop\\Bleach\\Bleach - 058 [720p] [Dual] @Anime_Gallery.mkv",
         "source": "C:\\Users\\user\\Downloads\\telegram_desktop\\Bleach - 058 [720p] [Dual] @Anime_Gallery.mkv",
-        "reverted": true
+        "reverted": false
     },
     {
         "id": 67,
@@ -10203,7 +10203,7 @@
         "id": 1701,
         "source": "C:\\Users\\user\\Music\\[Waploaded]_Offset_-_Father_of_4_(feat._Big_Rube)-1550827454-1.mp3",
         "destination": "C:\\Users\\user\\Music\\Audio\\[Waploaded]_Offset_-_Father_of_4_(feat._Big_Rube)-1550827454-1.mp3",
-        "reverted": true
+        "reverted": false
     },
     {
         "id": 1702,
@@ -10251,30 +10251,30 @@
         "id": 1709,
         "source": "C:\\Users\\user\\Music\\[Waploaded]_Offset_-_Father_of_4_(feat._Big_Rube)-1550827454-1.mp3",
         "destination": "C:\\Users\\user\\Music\\Audio\\[Waploaded]_Offset_-_Father_of_4_(feat._Big_Rube)-1550827454-1.mp3",
-        "reverted": false
+        "reverted": true
     },
     {
         "id": 1710,
         "source": "C:\\Users\\user\\Documents\\WebSocket.pdf",
         "destination": "C:\\Users\\user\\Documents\\Documents\\WebSocket.pdf",
-        "reverted": false
+        "reverted": true
     },
     {
         "id": 1711,
         "source": "C:\\Users\\user\\Downloads\\telegram_desktop\\Bleach - 058 [720p] [Dual] @Anime_Gallery.mkv",
         "destination": "C:\\Users\\user\\Downloads\\telegram_desktop\\Bleach\\Bleach - 058 [720p] [Dual] @Anime_Gallery.mkv",
-        "reverted": false
+        "reverted": true
     },
     {
         "id": 1712,
         "source": "C:\\Users\\user\\Downloads\\01_The_Names_of_the_Day_of_Resurrection.m4a.mp4",
         "destination": "C:\\Users\\user\\Downloads\\The Names of the Day of Resurrection m4a\\01_The_Names_of_the_Day_of_Resurrection.m4a.mp4",
-        "reverted": false
+        "reverted": true
     },
     {
         "id": 1713,
         "source": "C:\\Users\\user\\Downloads\\1234.mp4",
         "destination": "C:\\Users\\user\\Downloads\\1234\\1234.mp4",
-        "reverted": false
+        "reverted": true
     }
 ]

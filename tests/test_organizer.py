@@ -279,3 +279,51 @@ def test_revert_can_be_cancelled(isolated):
     # Some files came back; the rest are still in the category folder.
     back = [p for p in isolated.iterdir() if p.is_file()]
     assert 0 < len(back) < 5
+
+
+# ---------------------------------------------------------------------------
+# revert by id (single + multiple)
+# ---------------------------------------------------------------------------
+
+def test_parse_ids():
+    assert organizer.parse_ids("5") == [5]
+    assert organizer.parse_ids("1, 3, 7-9") == [1, 3, 7, 8, 9]
+    assert organizer.parse_ids("1 2 3") == [1, 2, 3]
+    assert organizer.parse_ids("9-7") == [7, 8, 9]  # reversed range
+    assert organizer.parse_ids("2,2,2") == [2]  # de-duplicated
+    assert organizer.parse_ids("") == []
+
+
+def test_parse_ids_rejects_garbage():
+    with pytest.raises(ValueError):
+        organizer.parse_ids("abc")
+    with pytest.raises(ValueError):
+        organizer.parse_ids("1, x")
+
+
+def test_revert_files_subset(isolated):
+    for i in range(5):
+        make_file(isolated, f"file{i}.py")
+    organizer.organize_files(str(isolated))
+
+    moves = organizer.load_moves()
+    ids = [id_for(moves, "file1.py"), id_for(moves, "file3.py")]
+    organizer.revert_files(ids, moves)
+
+    # Only the requested files came back; the rest stay organized.
+    assert (isolated / "file1.py").exists()
+    assert (isolated / "file3.py").exists()
+    assert (isolated / "Code" / "file0.py").exists()
+    assert (isolated / "Code" / "file2.py").exists()
+    assert (isolated / "Code" / "file4.py").exists()
+
+
+def test_revert_files_ignores_unknown_ids(isolated):
+    make_file(isolated, "a.py")
+    organizer.organize_files(str(isolated))
+
+    messages = []
+    organizer.revert_files([999, 1], organizer.load_moves(), on_log=messages.append)
+
+    assert (isolated / "a.py").exists()
+    assert any("No move found with id 999" in m for m in messages)
