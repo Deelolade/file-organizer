@@ -120,6 +120,13 @@ def extract_title(file_name):
     return title
 
 
+def sanitize_folder_name(name):
+    """Remove characters that are invalid in Windows folder names and trim
+    trailing dots/spaces, which Windows also rejects."""
+    name = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "", name)
+    return name.strip(" .")
+
+
 def organize_files(path):
     directory = Path(path).expanduser()
 
@@ -161,9 +168,7 @@ def organize_files(path):
             title = extract_title(file.name)
 
             if title and title.lower() != file.stem.lower():
-                # Remove characters that are invalid in Windows folder names.
-                title = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "", title)
-                title = title.strip(" .")
+                title = sanitize_folder_name(title)
 
             if title:
                 destination = directory / title
