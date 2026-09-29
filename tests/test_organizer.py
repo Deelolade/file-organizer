@@ -217,3 +217,65 @@ def test_history_prints(capsys, isolated):
     organizer.history(organizer.load_moves())
     out = capsys.readouterr().out
     assert "a.py" in out
+
+
+# ---------------------------------------------------------------------------
+# progress callback / cancellation
+# ---------------------------------------------------------------------------
+
+def test_organize_reports_progress(isolated):
+    make_file(isolated, "a.py")
+
+    messages = []
+    organizer.organize_files(str(isolated), on_log=messages.append)
+
+    assert any("Moved" in m for m in messages)
+    assert any("Organization complete" in m for m in messages)
+
+
+def test_revert_reports_progress(isolated):
+    make_file(isolated, "a.py")
+    organizer.organize_files(str(isolated))
+
+    messages = []
+    organizer.revert_moves(organizer.load_moves(), on_log=messages.append)
+
+    assert any("Reverted" in m for m in messages)
+
+
+def test_organize_can_be_cancelled(isolated):
+    for i in range(5):
+        make_file(isolated, f"file{i}.py")
+
+    calls = {"n": 0}
+
+    def should_stop():
+        calls["n"] += 1
+        return calls["n"] > 2
+
+    messages = []
+    organizer.organize_files(
+        str(isolated), on_log=messages.append, should_stop=should_stop
+    )
+
+    # Stopped early: some (but not all) files were moved and logged.
+    assert 0 < len(organizer.load_moves()) < 5
+    assert any("Cancelled" in m for m in messages)
+
+
+def test_revert_can_be_cancelled(isolated):
+    for i in range(5):
+        make_file(isolated, f"file{i}.py")
+    organizer.organize_files(str(isolated))
+
+    calls = {"n": 0}
+
+    def should_stop():
+        calls["n"] += 1
+        return calls["n"] > 2
+
+    organizer.revert_moves(organizer.load_moves(), should_stop=should_stop)
+
+    # Some files came back; the rest are still in the category folder.
+    back = [p for p in isolated.iterdir() if p.is_file()]
+    assert 0 < len(back) < 5

@@ -56,9 +56,17 @@ def save_moves(moves):
     return False
 
 
-def move_files(file, destination_dir, moves):
+def _log(message, on_log=None):
+    """Send a message to a callback when provided, otherwise print it."""
+    if on_log is not None:
+        on_log(message)
+    else:
+        print(message, flush=True)
+
+
+def move_files(file, destination_dir, moves, on_log=None):
     if not file.is_file():
-        print(f"Skipping {file.name}: source no longer exists")
+        _log(f"Skipping {file.name}: source no longer exists", on_log)
         return False
 
     destination = destination_dir / file.name
@@ -67,13 +75,13 @@ def move_files(file, destination_dir, moves):
         destination_dir.mkdir(parents=True, exist_ok=True)
 
         if destination.exists():
-            print(f"Skipping {file.name}: already exists")
+            _log(f"Skipping {file.name}: already exists", on_log)
             return False
 
         shutil.move(str(file), str(destination))
 
     except OSError as exc:
-        print(f"Failed to move {file.name}: {exc}")
+        _log(f"Failed to move {file.name}: {exc}", on_log)
         return False
 
     source = str(file)
@@ -94,7 +102,7 @@ def move_files(file, destination_dir, moves):
             "reverted": False,
         })
 
-    print(f"Moved {file.name} to {destination}", flush=True)
+    _log(f"Moved {file.name} to {destination}", on_log)
     return True
     
 def extract_title(file_name):
@@ -127,11 +135,11 @@ def sanitize_folder_name(name):
     return name.strip(" .")
 
 
-def organize_files(path):
+def organize_files(path, on_log=None, should_stop=None):
     directory = Path(path).expanduser()
 
     if not directory.is_dir():
-        print(f"{path} is not a directory")
+        _log(f"{path} is not a directory", on_log)
         return
 
     code_extensions = {".py", ".js", ".jsx", ".ts", ".tsx"}
@@ -147,7 +155,12 @@ def organize_files(path):
     moved_count = 0
 
     # Take a snapshot of the files before moving anything.
+    cancelled = False
     for file in list(directory.iterdir()):
+        if should_stop is not None and should_stop():
+            cancelled = True
+            break
+
         if not file.is_file():
             continue
 
@@ -181,9 +194,9 @@ def organize_files(path):
         else:
             destination = directory / "Unknown"
 
-        print(f"{file.name} → {destination.name}", flush=True)
+        _log(f"{file.name} → {destination.name}", on_log)
 
-        if move_files(file, destination, moves):
+        if move_files(file, destination, moves, on_log):
             pending += 1
             moved_count += 1
 
@@ -195,23 +208,29 @@ def organize_files(path):
                 pending = 0
 
     # Final authoritative save; retries are handled inside save_moves.
-    if moved_count:
-        if save_moves(moves):
-            print(f"\nOrganization complete. {moved_count} files moved.")
-        else:
-            print(
-                f"\nOrganization complete. {moved_count} files moved, "
-                "but the move log could not be saved — re-run `revert` "
-                "after fixing file access to moves.json."
-            )
+    if moved_count and not save_moves(moves):
+        _log(
+            "Warning: the move log could not be saved — re-run `revert` "
+            "after fixing file access to moves.json.",
+            on_log,
+        )
 
-def revert_moves(moves):
+    if cancelled:
+        _log(f"Cancelled. {moved_count} file(s) moved.", on_log)
+    elif moved_count:
+        _log(f"Organization complete. {moved_count} files moved.", on_log)
+
+def revert_moves(moves, on_log=None, should_stop=None):
     if not moves:
-        print("No moves to revert")
+        _log("No moves to revert", on_log)
         return
 
     updated = False
     for move in reversed(moves):
+        if should_stop is not None and should_stop():
+            _log("Cancelled.", on_log)
+            break
+
         if move.get("reverted"):
             continue
 
@@ -219,7 +238,7 @@ def revert_moves(moves):
         source = Path(move["source"])
 
         if not destination.exists():
-            print(f"Skipping {destination.name}: not found at {destination}")
+            _log(f"Skipping {destination.name}: not found at {destination}", on_log)
             continue
 
         # Older logs store `source` as a directory; newer logs store the full
@@ -232,32 +251,32 @@ def revert_moves(moves):
         target.parent.mkdir(parents=True, exist_ok=True)
 
         if target.exists():
-            print(f"Skipping {destination.name}: already exists at {target}")
+            _log(f"Skipping {destination.name}: already exists at {target}", on_log)
             continue
 
         try:
             shutil.move(str(destination), str(target))
         except OSError as exc:
-            print(f"Failed to revert {destination.name}: {exc}")
+            _log(f"Failed to revert {destination.name}: {exc}", on_log)
             continue
 
         move["reverted"] = True
         updated = True
-        print(f"Reverted {destination.name} to {target}")
+        _log(f"Reverted {destination.name} to {target}", on_log)
 
         # Clean up the category folder if it is now empty.
         try:
             dest_dir = destination.parent
             if dest_dir.is_dir() and not any(dest_dir.iterdir()):
                 dest_dir.rmdir()
-                print(f"Removed empty directory: {dest_dir}")
+                _log(f"Removed empty directory: {dest_dir}", on_log)
         except OSError:
             pass
 
     if updated:
         save_moves(moves)
 
-def revert_file(file_id, moves):
+def revert_file(file_id, moves, on_log=None):
     """Revert a single move (by its id) back to its original location."""
     move = None
     for entry in moves:
@@ -266,18 +285,18 @@ def revert_file(file_id, moves):
             break
 
     if move is None:
-        print(f"No move found with id {file_id}.")
+        _log(f"No move found with id {file_id}.", on_log)
         return
 
     if move.get("reverted"):
-        print(f"File with id {file_id} has already been reverted.")
+        _log(f"File with id {file_id} has already been reverted.", on_log)
         return
 
     destination = Path(move["destination"])
     source = Path(move["source"])
 
     if not destination.exists():
-        print(f"{destination.name} was not found at {destination}.")
+        _log(f"{destination.name} was not found at {destination}.", on_log)
         return
 
     # Older logs store `source` as a directory; newer logs store the full
@@ -290,26 +309,26 @@ def revert_file(file_id, moves):
     target.parent.mkdir(parents=True, exist_ok=True)
 
     if target.exists():
-        print(f"{target.name} already exists at {target}.")
+        _log(f"{target.name} already exists at {target}.", on_log)
         return
 
     try:
         shutil.move(str(destination), str(target))
     except OSError as exc:
-        print(f"Failed to revert {destination.name}: {exc}")
+        _log(f"Failed to revert {destination.name}: {exc}", on_log)
         return
 
     move["reverted"] = True
     save_moves(moves)
 
-    print(f"Reverted #{file_id}: {destination.name} → {target}")
+    _log(f"Reverted #{file_id}: {destination.name} → {target}", on_log)
 
     # Clean up the category folder if it is now empty.
     try:
         dest_dir = destination.parent
         if dest_dir.is_dir() and not any(dest_dir.iterdir()):
             dest_dir.rmdir()
-            print(f"Removed empty directory: {dest_dir}")
+            _log(f"Removed empty directory: {dest_dir}", on_log)
     except OSError:
         pass
 
