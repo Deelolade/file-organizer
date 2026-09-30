@@ -1,12 +1,43 @@
 import queue
+import sys
 import threading
 
 import tkinter as tk
+from pathlib import Path
 from tkinter import filedialog
 
 import ttkbootstrap as ttk
 
 import organizer
+
+# In a windowed (console=False) frozen build sys.stdout/stderr are None. Route
+# them to a log next to the exe so stray output and unhandled tracebacks are
+# captured instead of silently killing the app. The file is only created if
+# something is actually written.
+class _LazyLogFile:
+    def __init__(self, path):
+        self._path = path
+        self._fh = None
+
+    def _handle(self):
+        if self._fh is None:
+            self._fh = open(self._path, "a", encoding="utf-8")
+        return self._fh
+
+    def write(self, text):
+        return self._handle().write(text)
+
+    def flush(self):
+        if self._fh is not None:
+            self._fh.flush()
+
+
+if getattr(sys, "frozen", False) and (sys.stdout is None or sys.stderr is None):
+    _log_file = _LazyLogFile(Path(sys.executable).resolve().parent / "fileorganizer.log")
+    if sys.stdout is None:
+        sys.stdout = _log_file
+    if sys.stderr is None:
+        sys.stderr = _log_file
 
 # ---------------------------------------------------------------------------
 # App state
